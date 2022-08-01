@@ -18,12 +18,13 @@ pub struct Environment<V> {
     version: PhantomData<V>,
     /// Invariant: Should always point to a valid ODBC Environment with Version declared as V or
     /// `NoVersion`
-    handle: HEnv,
+    pub handle: HEnv,
 }
 
 impl<V> Environment<V> {
+    
     /// Provides access to the raw ODBC environment handle.
-    pub fn as_raw(&self) -> SQLHENV {
+    pub fn as_raw(&self) -> SQLHENV {       
         self.handle.as_raw()
     }
 
@@ -36,7 +37,8 @@ impl<V> Environment<V> {
     }
 }
 
-impl<V: Version> Environment<V> {
+impl<V> Environment<V> {
+        
     /// Used by `Connection`s constructor
     pub(crate) fn as_henv(&self) -> &HEnv {
         &self.handle
@@ -87,7 +89,7 @@ impl<V: Version> Environment<V> {
     }
 }
 
-impl Environment<NoVersion> {
+impl Environment<NoVersion> {    
     /// Allocates a new `Environment`
     pub fn new() -> Return<Self> {
         HEnv::allocate().map(|handle| {
@@ -105,6 +107,7 @@ impl Environment<NoVersion> {
     /// must however avoid calling 3.x functionality on 2.x drivers. Since drivers are connected at
     /// runtime, these kind of errors can not be catched by the type system.
     pub fn declare_version<V: Version>(mut self) -> Return<Environment<V>, Environment<NoVersion>> {
+
         let result = self.handle.declare_version(V::constant());
         match result {
             Success(()) => Success(self.transit()),

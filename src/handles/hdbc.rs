@@ -65,7 +65,8 @@ impl<'env> HDbc<'env> {
     /// Allocates a new Connection Handle
     pub fn allocate(parent: &HEnv) -> Return<Self> {
         let mut out = null_mut();
-        unsafe {
+        unsafe {            
+
             let result: Return<()> = SQLAllocHandle(Self::HANDLE_TYPE, parent.handle(), &mut out)
                 .into();
             result.map(|()| {
@@ -77,6 +78,22 @@ impl<'env> HDbc<'env> {
         }
     }
 
+    /// Allocates a new Connection Handle
+    pub fn allocate_with_hstmt(henv: SQLHENV) -> Return<Self> {
+        let mut out = null_mut();
+        unsafe {            
+
+            let result: Return<()> = SQLAllocHandle(Self::HANDLE_TYPE, henv as SQLHANDLE, &mut out)
+                .into();
+            result.map(|()| {
+                HDbc {
+                    parent: PhantomData,
+                    handle: out as SQLHDBC,
+                }
+            })
+        }
+    }
+    
     pub fn connect<DSN, U, P>(&mut self, data_source_name: &DSN, user: &U, pwd: &P) -> Return<()>
     where
         DSN: SqlStr + ?Sized,

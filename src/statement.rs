@@ -247,7 +247,7 @@ where
 
 impl<'con, 'param, 'col> Statement<'con, 'param, 'col, NoCursor, Unprepared> {
     /// Allocates a new `Statement`
-    pub fn with_parent<AC: AutocommitMode>(parent: &'con Connection<AC>) -> Return<Self> {
+    pub fn with_parent<AC: AutocommitMode, V:Version>(parent: &'con Connection<AC>) -> Return<Self> {
         HStmt::allocate(parent.as_hdbc()).map(|handle| {
             Statement {
                 handle,

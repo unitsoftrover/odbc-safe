@@ -8,6 +8,7 @@ use std::ops::DerefMut;
 mod connected;
 mod unconnected;
 mod hdbc_wrapper;
+use super::version::Odbc3;
 
 /// A `DataSource` is used to query and manipulate a data source.
 ///
@@ -26,9 +27,11 @@ mod hdbc_wrapper;
 /// See [Connection Handles in the ODBC Reference][1]
 /// [1]: https://docs.microsoft.com/sql/odbc/reference/develop-app/connection-handles
 #[derive(Debug)]
-pub struct DataSource<'env, S: HDbcWrapper<'env> = Unconnected<'env>> {
+pub struct DataSource<'env, S: HDbcWrapper<'env> = Unconnected<'env>> 
+{    
     /// Connection handle. Either `HDbc` for `Unconnected` or `Connected` for `Connected`.
-    handle: S::Handle
+    pub handle: S::Handle,
+    pub env : Environment<Odbc3>
 }
 
 impl<'env, Any> DataSource<'env, Any>
@@ -52,13 +55,13 @@ where
     /// May only be invoked with a valid Statement Handle which has been allocated using
     /// `SQLAllocHandle`. Special care must be taken that the Connection Handle passed is in a
     /// State which matches the type.
-    pub unsafe fn from_raw(raw: SQLHDBC) -> Self {
-        DataSource { handle: Any::from_hdbc(HDbc::from_raw(raw)) }
-    }
+    // pub unsafe fn from_raw(raw: SQLHDBC) -> Self {
+    //     DataSource { handle: Any::from_hdbc(HDbc::from_raw(raw)) }
+    // }
 
     /// Express state transiton
     fn transit<Other: HDbcWrapper<'env>>(self) -> DataSource<'env, Other> {
-        DataSource { handle: Other::from_hdbc(self.handle.into_hdbc()) }
+        DataSource { handle: Other::from_hdbc(self.handle.into_hdbc()), env: self.env}
     }
 }
 
@@ -67,13 +70,24 @@ impl<'env> DataSource<'env, Unconnected<'env>> {
     ///
     /// See [Allocating a Connection Handle ODBC][1]
     /// [1]: https://docs.microsoft.com/sql/odbc/reference/develop-app/allocating-a-connection-handle-odbc
-    pub fn with_parent<V>(parent: &'env Environment<V>) -> Return<Self>
+    pub fn with_parent<V>(parent: Environment<Odbc3>) -> Return<Self>
     where
         V: Version,
     {
-        HDbc::allocate(parent.as_henv()).map(|handle| {
-            DataSource { handle: Unconnected::from_hdbc(handle) }
+        HDbc::allocate(&parent.as_henv()).map(|handle| {
+            DataSource { handle: Unconnected::from_hdbc(handle), env: parent}
         })
+    }
+
+    #[doc(hidden)]
+    pub fn new()->Return<Self>{
+        let env = Environment::new().unwrap();
+        //let mut env = HEnv::allocate().unwrap();       
+        let env = env.declare_version().unwrap() as Environment<Odbc3>;                
+
+        HDbc::allocate_with_hstmt(env.as_henv().handle() as SQLHENV).map(|handle| {
+            DataSource {handle: Unconnected::from_hdbc(handle), env: env }
+        }) 
     }
 
     /// Establishes connections to a driver and a data source. The connection handle references
@@ -113,7 +127,7 @@ impl<'env> DataSource<'env, Unconnected<'env>> {
             Error(()) => Error(self.transit()),
         }
     }
-
+    
     /// Connects to a data source using a connection string.
     ///
     /// For the syntax regarding the connections string see [SQLDriverConnect][1]. This method is

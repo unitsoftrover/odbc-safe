@@ -21,9 +21,13 @@ impl<T, E> Return<T, E> {
         F: FnOnce(T) -> U,
     {
         match self {
-            Success(v) => Success(f(v)),
+            Success(v) => {
+                Success(f(v))
+            },
             Info(v) => Info(f(v)),
-            Error(e) => Error(e),
+            Error(e) => {
+                Error(e)
+            },
         }
     }
 
